@@ -8,9 +8,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
-  mapping(address => uint256) private _whitelistSaleMinted;
-  mapping(address => uint256) private _publicSaleMinted;
-
   uint256 public collectionSize;
   uint256 public maxBatchSize;
   uint256 public amountForDevs;
@@ -19,7 +16,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
     bytes32 merkleRoot;
     uint32 startTime;
     uint64 price;
-    uint8 maxPerAddress;
+    uint64 maxPerAddress;
   }
 
   WhitelistSaleConfig public whitelistSaleConfig;
@@ -27,7 +24,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
   struct PublicSaleConfig {
     uint32 startTime;
     uint64 price;
-    uint8 maxPerAddress;
+    uint64 maxPerAddress;
   }
 
   PublicSaleConfig public publicSaleConfig;
@@ -88,7 +85,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
     bytes32 merkleRoot,
     uint32 whitelistSaleStartTime,
     uint64 whitelistSalePriceWei,
-    uint8 maxPerAddressDuringWhitelistSaleMint
+    uint64 maxPerAddressDuringWhitelistSaleMint
   ) external onlyOwner {
     whitelistSaleConfig.merkleRoot = merkleRoot;
     whitelistSaleConfig.startTime = whitelistSaleStartTime;
@@ -100,7 +97,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
     whitelistSaleConfig.merkleRoot = root;
   }
 
-  function whitelistSaleMint(bytes32[] calldata _merkleProof, uint256 quantity)
+  function whitelistSaleMint(bytes32[] calldata _merkleProof, uint64 quantity)
     external
     payable
     callerIsUser
@@ -108,7 +105,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
   {
     uint256 price = uint256(whitelistSaleConfig.price);
     uint256 saleStartTime = uint256(whitelistSaleConfig.startTime);
-    uint256 maxPerAddress = uint256(whitelistSaleConfig.maxPerAddress);
+    uint64 maxPerAddress = whitelistSaleConfig.maxPerAddress;
     require(price != 0, "whitelist sale has not begun yet");
     require(
       saleStartTime != 0 && block.timestamp >= saleStartTime,
@@ -121,19 +118,18 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
       "invalid whitelist proof"
     );
     require(
-      _whitelistSaleMinted[msg.sender] + quantity <= maxPerAddress,
+      _getAux(_msgSender()) + quantity <= maxPerAddress,
       "can not mint this many"
     );
     _safeMint(msg.sender, quantity);
-    _whitelistSaleMinted[msg.sender]
-      = _whitelistSaleMinted[msg.sender] + quantity;
+    _setAux(_msgSender(), quantity); 
     refundIfOver(price * quantity);
   }
 
   function endWhitelistSaleAndSetupPublicSale(
     uint32 publicSaleStartTime,
     uint64 publicSalePriceWei,
-    uint8 maxPerAddressDuringPublicSaleMint
+    uint64 maxPerAddressDuringPublicSaleMint
   ) external onlyOwner {
     whitelistSaleConfig.startTime = 0;
 
@@ -142,7 +138,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
     publicSaleConfig.maxPerAddress = maxPerAddressDuringPublicSaleMint;
   }
 
-  function publicSaleMint(uint256 quantity)
+  function publicSaleMint(uint64 quantity)
     external
     payable
     callerIsUser
@@ -150,7 +146,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
   {
     uint256 price = uint256(publicSaleConfig.price);
     uint256 startTime = uint256(publicSaleConfig.startTime);
-    uint256 maxPerAddress = uint256(publicSaleConfig.maxPerAddress);
+    uint64 maxPerAddress = publicSaleConfig.maxPerAddress;
     require(price != 0, "public sale has not begun yet");
     require(
       startTime != 0 && block.timestamp >= startTime,
@@ -158,12 +154,11 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
     );
     require(totalSupply() + quantity <= collectionSize, "reached max supply");
     require(
-      _publicSaleMinted[msg.sender] + quantity <= maxPerAddress,
+      _numberMinted(_msgSender()) - _getAux(_msgSender()) + quantity
+        <= maxPerAddress,
       "can not mint this many"
     );
     _safeMint(msg.sender, quantity);
-    _publicSaleMinted[msg.sender] =
-      _publicSaleMinted[msg.sender] + quantity;
     refundIfOver(price * quantity);
   }
 
