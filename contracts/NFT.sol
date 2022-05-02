@@ -85,7 +85,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
     bytes32 merkleRoot,
     uint32 whitelistSaleStartTime,
     uint64 whitelistSalePriceWei,
-    uint8 maxPerAddressDuringWhitelistSaleMint
+    uint64 maxPerAddressDuringWhitelistSaleMint
   ) external onlyOwner {
     whitelistSaleConfig.merkleRoot = merkleRoot;
     whitelistSaleConfig.startTime = whitelistSaleStartTime;
@@ -129,7 +129,7 @@ contract NFT is Ownable, ERC721A, Pausable, ReentrancyGuard {
   function endWhitelistSaleAndSetupPublicSale(
     uint32 publicSaleStartTime,
     uint64 publicSalePriceWei,
-    uint8 maxPerAddressDuringPublicSaleMint
+    uint64 maxPerAddressDuringPublicSaleMint
   ) external onlyOwner {
     whitelistSaleConfig.startTime = 0;
 
